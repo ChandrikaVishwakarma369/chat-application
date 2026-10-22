@@ -2,7 +2,6 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const User = require("../model/User.js");
 const Message = require("../model/Message.js");
-
 function chatSocket(io) {
   io.use(async (socket, next) => {
     try {
@@ -31,19 +30,15 @@ function chatSocket(io) {
       next(new Error("Invalid or expired token"));
     }
   });
-
   io.on("connection", (socket) => {
     const myRoom = `user:${socket.userId}`;
     socket.join(myRoom);
 
     socket.on("send_message", async (data, callback) => {
-      const reply =
-        typeof callback === "function" ? callback : () => {};
-
+      const reply = typeof callback === "function" ? callback : () => {};
       try {
         const receiverId = data?.receiverId;
         const text = data?.text?.trim();
-
         if (
           !mongoose.isValidObjectId(receiverId) ||
           String(receiverId) === socket.userId

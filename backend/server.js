@@ -5,7 +5,6 @@ const { Server } = require("socket.io");
 const http = require("http");
 
 const chatSocket = require("./src/socket/chatSocket.js");
-const chatRoutes = require("./src/route/chatRoutes.js");
 
 const server = http.createServer(app);
 
@@ -15,8 +14,6 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
 });
-
-app.use("/api/chat", chatRoutes);
 
 chatSocket(io);
 

@@ -1,24 +1,17 @@
-
 const User = require("../model/User.js");
 const Message = require("../model/Message.js");
-
-// Get logged-in user and all other users
 exports.getChatUsers = async (req, res) => {
   try {
     const currentUserId = req.user.id;
-
     const me = await User.findById(currentUserId).select(
       "_id Fullname Email"
     );
-
     if (!me) {
       return res.status(404).json({ message: "User not found" });
     }
-
     const users = await User.find({
       _id: { $ne: currentUserId },
     }).select("_id Fullname Email");
-
     res.json({
       me: {
         _id: me._id,
@@ -33,7 +26,6 @@ exports.getChatUsers = async (req, res) => {
   }
 };
 
-// Get previous messages with selected user
 exports.getMessages = async (req, res) => {
   try {
     const currentUserId = req.user._id || req.user.id;

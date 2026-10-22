@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { useNavigate, useParams } from "react-router-dom";
@@ -16,48 +15,38 @@ export default function Chat() {
   const [status, setStatus] = useState("Connecting...");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const socketRef = useRef(null);
   const selectedRef = useRef(userId);
   const meRef = useRef(null);
   const bottomRef = useRef(null);
-
   useEffect(() => {
     selectedRef.current = userId;
   }, [userId]);
-
   useEffect(() => {
     meRef.current = me?._id;
   }, [me]);
-
   useEffect(() => {
     let active = true;
     const token = localStorage.getItem("token");
-
     async function loadChat() {
       if (!token) {
         navigate("/login");
         return;
       }
-
       setLoading(true);
       setError("");
       setSelected(null);
       setMessages([]);
-
       try {
         const headers = {
           Authorization: `Bearer ${token}`,
         };
-
         const [usersResponse, messagesResponse] = await Promise.all([
           fetch(`${API}/api/chat/users`, { headers }),
           fetch(`${API}/api/chat/${userId}/messages`, { headers }),
         ]);
-
         const usersData = await usersResponse.json();
         const messagesData = await messagesResponse.json();
-
         if (
           usersResponse.status === 401 ||
           messagesResponse.status === 401
@@ -66,34 +55,27 @@ export default function Chat() {
           navigate("/login");
           return;
         }
-
         if (!usersResponse.ok) {
           throw new Error(
             usersData.message || "Unable to load user details"
           );
         }
-
         if (!messagesResponse.ok) {
           throw new Error(
             messagesData.message || "Unable to load messages"
           );
         }
-
         const currentUser = usersData.me;
         const otherUser = (usersData.users || []).find(
           (user) => String(user._id) === String(userId)
         );
-
         if (!currentUser) {
           throw new Error("Logged-in user details not found");
         }
-
         if (!otherUser) {
           throw new Error("Selected user not found");
         }
-
         if (!active) return;
-
         setMe(currentUser);
         setSelected(otherUser);
         setMessages(
@@ -107,43 +89,33 @@ export default function Chat() {
         if (active) setLoading(false);
       }
     }
-
     loadChat();
-
     return () => {
       active = false;
     };
   }, [userId, navigate]);
-
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
-
     const socket = io(API, {
       auth: { token },
       reconnection: true,
     });
-
     socketRef.current = socket;
-
     socket.on("connect", () => setStatus("Connected"));
     socket.on("disconnect", () => setStatus("Disconnected"));
-
     socket.on("connect_error", (err) => {
       setStatus("Connection failed");
       setError(err.message || "Socket connection failed");
     });
-
     socket.on("new_message", (message) => {
       const myId = meRef.current;
       const activeUserId = selectedRef.current;
-
       const belongsToOpenChat =
         (String(message.sender) === String(myId) &&
           String(message.receiver) === String(activeUserId)) ||
         (String(message.receiver) === String(myId) &&
           String(message.sender) === String(activeUserId));
-
       if (belongsToOpenChat) {
         setMessages((previous) =>
           previous.some(
@@ -154,27 +126,20 @@ export default function Chat() {
         );
       }
     });
-
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
   }, []);
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
   function sendMessage(event) {
     event.preventDefault();
-
     const messageText = text.trim();
     const socket = socketRef.current;
-
     if (!messageText || !selected || !socket?.connected) return;
-
     setError("");
-
     socket.emit(
       "send_message",
       {
