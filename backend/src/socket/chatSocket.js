@@ -1,7 +1,7 @@
+
 const jwt = require("jsonwebtoken");
-const mongoose = require("mongoose");
-const User = require("../model/User.js");
-const Message = require("../model/Message.js");
+const { prisma } = require("../config/db.js");
+
 function chatSocket(io) {
   io.use(async (socket, next) => {
     try {
@@ -12,35 +12,42 @@ function chatSocket(io) {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const userId = decoded.id || decoded.userId || decoded._id;
+      const userId = Number(decoded.id || decoded.userId || decoded._id);
 
-      if (!userId || !mongoose.isValidObjectId(userId)) {
+      if (!Number.isSafeInteger(userId) || userId <= 0) {
         return next(new Error("Invalid token"));
       }
 
-      const user = await User.findById(userId).select("_id");
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
 
       if (!user) {
         return next(new Error("User not found"));
       }
 
-      socket.userId = String(user._id);
+      socket.userId = String(user.id);
       next();
     } catch (error) {
       next(new Error("Invalid or expired token"));
     }
   });
+
   io.on("connection", (socket) => {
     const myRoom = `user:${socket.userId}`;
     socket.join(myRoom);
 
     socket.on("send_message", async (data, callback) => {
       const reply = typeof callback === "function" ? callback : () => {};
+
       try {
-        const receiverId = data?.receiverId;
+        const receiverId = Number(data?.receiverId);
         const text = data?.text?.trim();
+
         if (
-          !mongoose.isValidObjectId(receiverId) ||
+          !Number.isSafeInteger(receiverId) ||
+          receiverId <= 0 ||
           String(receiverId) === socket.userId
         ) {
           return reply({
@@ -56,7 +63,10 @@ function chatSocket(io) {
           });
         }
 
-        const receiver = await User.findById(receiverId).select("_id");
+        const receiver = await prisma.user.findUnique({
+          where: { id: receiverId },
+          select: { id: true },
+        });
 
         if (!receiver) {
           return reply({
@@ -65,22 +75,24 @@ function chatSocket(io) {
           });
         }
 
-        const message = await Message.create({
-          sender: socket.userId,
-          receiver: receiverId,
-          text,
+        const message = await prisma.message.create({
+          data: {
+            senderId: Number(socket.userId),
+            receiverId: receiver.id,
+            text,
+          },
         });
 
         const payload = {
-          _id: String(message._id),
-          sender: String(message.sender),
-          receiver: String(message.receiver),
+          _id: String(message.id),
+          sender: String(message.senderId),
+          receiver: String(message.receiverId),
           text: message.text,
           createdAt: message.createdAt,
         };
 
         io.to(`user:${socket.userId}`)
-          .to(`user:${String(receiver._id)}`)
+          .to(`user:${String(receiver.id)}`)
           .emit("new_message", payload);
 
         reply({ success: true, message: payload });
@@ -99,4 +111,4 @@ function chatSocket(io) {
   });
 }
 
-module.exports = chatSocket;
+module.exports = chatSocket

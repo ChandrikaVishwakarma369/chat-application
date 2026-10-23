@@ -1,3 +1,4 @@
+
 const jwt = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
@@ -9,14 +10,19 @@ const authMiddleware = (req, res, next) => {
         message: "Please login first",
       });
     }
+
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = Number(decoded.id);
 
-    req.user = { id: decoded.id };
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+      return res.status(401).json({
+        message: "Invalid or expired token",
+      });
+    }
+
+    req.user = { id: userId };
 
     next();
   } catch (error) {
@@ -26,4 +32,4 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+module.exports = authMiddleware
